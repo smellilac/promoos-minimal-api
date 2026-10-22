@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using TaskApi.Data;
+using TaskApi.Messaging;
 
 namespace TaskApi;
 
@@ -92,6 +93,7 @@ public static class TaskEndpoints
         Guid id,
         TaskDbContext db,
         TimeProvider timeProvider,
+        ITaskEventPublisher publisher,
         CancellationToken ct)
     {
         // Tracked read: we intend to update, and EF will add xmin to the UPDATE ... WHERE clause.
@@ -119,6 +121,15 @@ public static class TaskEndpoints
             // Invariant 4, case B: a real race — both read it incomplete, xmin no longer matches.
             return Conflict("Task was modified concurrently and is already completed.");
         }
+
+        // Invariant 3 / ADR 003: publish ONLY after a successful save — otherwise a DB failure
+        // would leave subscribers believing in a completion that never persisted. Enqueue is
+        // non-blocking (ADR 002): the response doesn't wait on RabbitMQ.
+        // HACK: не успел, доделал бы так: транзакционный Outbox — писал бы событие в таблицу
+        // outbox в той же транзакции, что и обновление задачи, а фоновый relay публиковал бы и
+        // помечал отправленным. Сейчас между SaveChanges и Enqueue есть окно: если процесс умрёт,
+        // событие потеряется (at-most-once вместо at-least-once).
+        publisher.Enqueue(new TaskCompletedEvent(task.Id, task.Title, task.CompletedAt!.Value, task.Priority));
 
         return TypedResults.Ok(ToResponse(task));
     }
