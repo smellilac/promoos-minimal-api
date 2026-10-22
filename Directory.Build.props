@@ -1,0 +1,15 @@
+<Project>
+
+  <!--
+    Shared build settings. .NET 9 / C# 13 are fixed by the spec (docs/spec.md):
+    LangVersion is pinned to 13.0 so no C# 14 feature (e.g. `field`, extension members)
+    can sneak in. TargetFramework stays in each .csproj so the reviewer sees net9.0
+    right where they expect it.
+  -->
+  <PropertyGroup>
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

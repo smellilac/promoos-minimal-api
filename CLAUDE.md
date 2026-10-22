@@ -76,7 +76,10 @@ tests/TaskApi.Tests/
    Do NOT pass `stoppingToken` into `ReadAllAsync` — it would abort the drain.
 8. **Time**: `DateTimeOffset` in UTC via injected `TimeProvider` (Npgsql rejects non-zero offsets for timestamptz).
 9. **JSON**: camelCase, enums as strings (`JsonStringEnumConverter`), plus `Enum.IsDefined` check for numeric enum values.
-
+10. **Global errors**: `AddProblemDetails()` + `UseExceptionHandler()` + `UseStatusCodePages()`.
+    Unhandled exception → 500 ProblemDetails without stack trace. Invalid JSON/enum binding must
+    stay 400, not 500 (use ExceptionHandlerOptions.StatusCodeSelector for BadHttpRequestException if needed).
+	
 ## Message contract
 - Exchange `task.events` (topic, durable), routing key `task.completed`
 - Body: `{ "taskId", "title", "completedAt", "priority" }`, priority as string
