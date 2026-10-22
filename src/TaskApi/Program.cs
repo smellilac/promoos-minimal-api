@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using TaskApi;
 using TaskApi.Data;
+using TaskApi.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,19 @@ builder.Services.AddDbContext<TaskDbContext>(options =>
 
 // Single clock source injected everywhere, so timestamps are UTC and testable (FakeTimeProvider).
 builder.Services.AddSingleton(TimeProvider.System);
+
+// Messaging (ADR 002): one RabbitMqPublisher instance is both the queue the endpoint writes to
+// (ITaskEventPublisher) and the background reader that publishes to RabbitMQ (IHostedService).
+builder.Services.Configure<RabbitMqOptions>(
+    builder.Configuration.GetSection(RabbitMqOptions.SectionName));
+builder.Services.AddSingleton<RabbitMqPublisher>();
+builder.Services.AddSingleton<ITaskEventPublisher>(sp => sp.GetRequiredService<RabbitMqPublisher>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisher>());
+
+// Give the host 10s to stop so our 5s RabbitMQ drain (ADR 004, invariant 7) isn't cut short
+// by the 5s default shutdown timeout.
+builder.Services.Configure<HostOptions>(options =>
+    options.ShutdownTimeout = TimeSpan.FromSeconds(10));
 
 // Invariant 9: camelCase JSON, enums serialized as strings ("Low"/"Medium"/"High").
 builder.Services.ConfigureHttpJsonOptions(options =>

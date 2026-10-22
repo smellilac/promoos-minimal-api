@@ -13,3 +13,11 @@ public sealed record TaskResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     Priority Priority);
+
+// Message contract published to RabbitMQ when a task is completed.
+// Serialized camelCase with Priority as a string → { "taskId", "title", "completedAt", "priority" }.
+public sealed record TaskCompletedEvent(
+    Guid TaskId,
+    string Title,
+    DateTimeOffset CompletedAt,
+    Priority Priority);
