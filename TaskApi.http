@@ -1,0 +1,99 @@
+@host = http://localhost:5117
+
+### 1. Create a task — minimal body, Priority omitted → defaults to Medium (expect 201)
+# @name create
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Buy milk"
+}
+
+### 2. Create a task — explicit priority (expect 201)
+# @name createHigh
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Ship release",
+  "priority": "High"
+}
+
+### 3. Get all tasks (expect 200 + array)
+GET {{host}}/tasks
+
+### 4. Complete the first task (expect 200, CompletedAt set)
+PUT {{host}}/tasks/{{create.response.body.id}}/complete
+
+### 5. Complete it again — already completed (expect 409)
+PUT {{host}}/tasks/{{create.response.body.id}}/complete
+
+### 6. Complete a non-existent task (expect 404)
+PUT {{host}}/tasks/00000000-0000-0000-0000-000000000000/complete
+
+### 7. Delete the second task (expect 204)
+DELETE {{host}}/tasks/{{createHigh.response.body.id}}
+
+### 8. Delete the same task again (expect 404)
+DELETE {{host}}/tasks/{{createHigh.response.body.id}}
+
+### --- Negative: validation ---
+
+### 9. Empty title (expect 400 ValidationProblem)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": ""
+}
+
+### 10. Whitespace-only title (expect 400 ValidationProblem)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "   "
+}
+
+### 11. Missing title field (expect 400 ValidationProblem)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "priority": "Low"
+}
+
+### 12. Title of 201 chars (expect 400 ValidationProblem)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### 13. Unknown enum string "Urgent" (expect 400 — fails at JSON binding)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Weird priority",
+  "priority": "Urgent"
+}
+
+### 14. Out-of-range numeric enum 99 (expect 400 — Enum.IsDefined check)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Numeric priority",
+  "priority": 99
+}
+
+### 15. Malformed JSON (expect 400, not 500 — StatusCodeSelector)
+POST {{host}}/tasks
+Content-Type: application/json
+
+{ "title": "broken"
+
+### 16. Invalid GUID in route (expect 404 — route constraint {id:guid} does not match)
+PUT {{host}}/tasks/not-a-guid/complete

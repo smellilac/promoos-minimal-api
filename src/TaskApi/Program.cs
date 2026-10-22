@@ -1,4 +1,7 @@
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using TaskApi;
 using TaskApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,7 +12,30 @@ builder.Services.AddDbContext<TaskDbContext>(options =>
 // Single clock source injected everywhere, so timestamps are UTC and testable (FakeTimeProvider).
 builder.Services.AddSingleton(TimeProvider.System);
 
+// Invariant 9: camelCase JSON, enums serialized as strings ("Low"/"Medium"/"High").
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
+// Invariant 10: unhandled errors become RFC 9457 ProblemDetails.
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
+
+// Invariant 10: turn exceptions into ProblemDetails. BadHttpRequestException (malformed JSON,
+// unparseable enum/route values) carries its own 400 — keep that status instead of masking it
+// as 500, so bad input stays a client error.
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    StatusCodeSelector = ex => ex is BadHttpRequestException badRequest
+        ? badRequest.StatusCode
+        : StatusCodes.Status500InternalServerError,
+});
+
+// Invariant 10: give empty-body error responses (e.g. bare 404) a ProblemDetails body too.
+app.UseStatusCodePages();
 
 // HACK: не успел, доделал бы так: в проде миграции не в стартапе, а отдельным шагом
 // деплоя (dotnet ef migrations bundle / dotnet ef database update в CI/CD) — чтобы
@@ -21,6 +47,9 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-app.MapGet("/", () => "Hello World!");
+app.MapTaskEndpoints();
 
 app.Run();
+
+// Exposes the implicit Program class so WebApplicationFactory<Program> can boot it in tests.
+public partial class Program;
