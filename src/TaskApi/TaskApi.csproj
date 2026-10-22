@@ -2,10 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <UserSecretsId>05691ca5-5f80-4a44-87a8-6bd76cf96d4d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <!-- Npgsql 9.0.4 only floors EF Core at 9.0.1; pin Relational up to 9.0.21 so the
+         whole graph (and the test project, via this non-private reference) unifies on
+         one EF Core version and MSB3277 goes away. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.21" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.21">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
